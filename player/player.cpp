@@ -40,6 +40,7 @@ int main(int argc, char* argv[])
     int frame_cnt;
     int ret, got_picture;
     FILE* fp;
+    SDL_Rect sdlRect;
 
     uint32_t pitchY;
     uint32_t pitchU;
@@ -48,6 +49,11 @@ int main(int argc, char* argv[])
     uint8_t* avY;
     uint8_t* avU;
     uint8_t* avV;
+
+    const int bpp = 12;
+    int screen_w = 960, screen_h = 544;
+    const int pixel_w = 960, pixel_h = 544;
+    unsigned char buffer[pixel_w * pixel_h * bpp / 8];
 
     if (SDL_Init(SDL_INIT_VIDEO)) {
         printf("Could not initialize SDL - %s\n", SDL_GetError());
@@ -111,10 +117,34 @@ int main(int argc, char* argv[])
     av_dump_format(pFormatCtx, 0, filepath, 0);
     printf("-------------------------------------------------\n");
 
-    fp = fopen("D:\\VsCode\\player\\player\\video\\demo.yuv", "wb");
+    SDL_Window* screen;
+    //SDL 2.0 Support for multiple windows
+    screen = SDL_CreateWindow("Simplest Video Play SDL2", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+        screen_w, screen_h, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+    if (!screen) {
+        printf("SDL: could not create window - exiting:%s\n", SDL_GetError());
+        return -1;
+    }
+
+    SDL_Renderer* sdlRenderer = SDL_CreateRenderer(screen, -1, 0);
+
+    Uint32 pixformat = 0;
+    //IYUV: Y + U + V  (3 planes)
+    //YV12: Y + V + U  (3 planes)
+    pixformat = SDL_PIXELFORMAT_IYUV;
+
+    SDL_Texture* sdlTexture = SDL_CreateTexture(sdlRenderer, pixformat, SDL_TEXTUREACCESS_STREAMING, pixel_w, pixel_h);
+
+    fp = fopen("D:\\VsCode\\player\\player\\video\\demo2.yuv", "wb");
 
     frame_cnt = 0;
-    /*
+
+    /* 修改下面的值可以调节视频显示的坐标，修改为多分割显示不同的码流 */
+    sdlRect.x = 0;
+    sdlRect.y = 0;
+    sdlRect.w = screen_w;
+    sdlRect.h = screen_h;
+    
     while (av_read_frame(pFormatCtx, packet) >= 0) 
     {
         if (packet->stream_index == videoindex) 
@@ -128,6 +158,8 @@ int main(int argc, char* argv[])
             if (got_picture)
             {
                 frame_cnt++;
+                int buf_index = 0;
+                
                 pitchY = pFrameYUV->linesize[0];
                 pitchU = pFrameYUV->linesize[1];
                 pitchV = pFrameYUV->linesize[2];
@@ -137,23 +169,39 @@ int main(int argc, char* argv[])
                 avV = pFrameYUV->data[2];
 
                 for (i = 0; i < pFrameYUV->height; i++) {
-                    fwrite(avY, pFrameYUV->width, 1, fp);
+                    memcpy(&buffer[buf_index], avY, pFrameYUV->width);
+                    //fwrite(avY, pFrameYUV->width, 1, fp);
                     avY += pitchY;
+                    buf_index += pitchY;
                 }
 
                 for (i = 0; i < pFrameYUV->height / 2; i++) {
-                    fwrite(avU, pFrameYUV->width / 2, 1, fp);
+                    memcpy(&buffer[buf_index], avY, pFrameYUV->width/2);
+                    //fwrite(avU, pFrameYUV->width / 2, 1, fp);
                     avU += pitchU;
+                    buf_index += pitchY;
                 }
 
                 for (i = 0; i < pFrameYUV->height / 2; i++) {
-                    fwrite(avV, pFrameYUV->width / 2, 1, fp);
+                    memcpy(&buffer[buf_index], avY, pFrameYUV->width / 2);
+                    //fwrite(avV, pFrameYUV->width / 2, 1, fp);
                     avV += pitchV;
+                    buf_index += pitchY;
                 }
+
+                fwrite(buffer, pixel_w * pixel_h * bpp / 8, 1, fp);
+                SDL_UpdateTexture(sdlTexture, NULL, buffer, pixel_w);
+
+                SDL_RenderClear(sdlRenderer);
+                SDL_RenderCopy(sdlRenderer, sdlTexture, NULL, &sdlRect);
+                SDL_RenderPresent(sdlRenderer);
+                //Delay 30ms
+                //SDL_Delay(30);
+
             }
         }
     }
-    */
+    
     printf("all success\n");
 
     av_frame_free(&pFrameYUV);
@@ -162,6 +210,8 @@ int main(int argc, char* argv[])
     avformat_close_input(&pFormatCtx);
 
     fclose(fp);
+
+    SDL_Quit();
 
     return 0;
 
