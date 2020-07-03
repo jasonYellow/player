@@ -172,21 +172,21 @@ int main(int argc, char* argv[])
                     memcpy(&buffer[buf_index], avY, pFrameYUV->width);
                     //fwrite(avY, pFrameYUV->width, 1, fp);
                     avY += pitchY;
-                    buf_index += pitchY;
+                    buf_index += pFrameYUV->width;
                 }
 
                 for (i = 0; i < pFrameYUV->height / 2; i++) {
-                    memcpy(&buffer[buf_index], avY, pFrameYUV->width/2);
+                    memcpy(&buffer[buf_index], avU, pFrameYUV->width/2);
                     //fwrite(avU, pFrameYUV->width / 2, 1, fp);
                     avU += pitchU;
-                    buf_index += pitchY;
+                    buf_index += pFrameYUV->width / 2;
                 }
 
                 for (i = 0; i < pFrameYUV->height / 2; i++) {
-                    memcpy(&buffer[buf_index], avY, pFrameYUV->width / 2);
+                    memcpy(&buffer[buf_index], avV, pFrameYUV->width / 2);
                     //fwrite(avV, pFrameYUV->width / 2, 1, fp);
                     avV += pitchV;
-                    buf_index += pitchY;
+                    buf_index += pFrameYUV->width / 2;
                 }
 
                 fwrite(buffer, pixel_w * pixel_h * bpp / 8, 1, fp);
